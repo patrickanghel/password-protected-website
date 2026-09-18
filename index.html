@@ -43,22 +43,21 @@
     transition: opacity 0.9s ease;
   }
   #gate.hide{ opacity:0; pointer-events:none; }
-
-  .flame{
-    position:absolute; bottom:14%; right:20%;
-    width:6px; height:22px;
-    background: linear-gradient(to top, #ff9a3d, #ffe27a);
-    border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
-    filter: blur(0.4px);
-    box-shadow: 0 0 20px 6px rgba(255,150,60,0.55), 0 0 60px 20px rgba(255,100,40,0.15);
-    animation: flicker 2.4s ease-in-out infinite;
-    opacity:0.85;
+  #gate::after{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 50% 62%, rgba(255,130,70,0.12), transparent 55%);
+    animation: ambientPulse 6.5s ease-in-out infinite;
+    pointer-events:none;
   }
-  @keyframes flicker{
-    0%,100%{ transform: scaleY(1) rotate(-1deg); }
-    30%{ transform: scaleY(0.92) rotate(1.5deg); }
-    50%{ transform: scaleY(1.06) rotate(-2deg); }
-    75%{ transform: scaleY(0.97) rotate(1deg); }
+  @keyframes ambientPulse{
+    0%,100%{ opacity:0.35; }
+    50%{ opacity:0.9; }
+  }
+
+  @keyframes fadeInUp{
+    from{ opacity:0; transform: translateY(14px); }
+    to{ opacity:1; transform: translateY(0); }
   }
 
   .gate-inner{
@@ -74,25 +73,96 @@
     font-size:13px;
     letter-spacing:0.14em;
     color: var(--paper-dim);
-    margin-bottom:18px;
+    margin-bottom:22px;
     font-style:italic;
+    animation: fadeInUp 1s ease-out both;
+  }
+
+  /* ---------- KEY & LOCK ---------- */
+  .lock-scene{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:22px;
+    margin-bottom:26px;
+    animation: fadeInUp 1.1s ease-out 0.15s both;
+  }
+  .key-wrap{
+    flex:none;
+    transition: transform 0.9s cubic-bezier(0.65,0,0.35,1);
+    animation: keyIdleBob 4.6s ease-in-out infinite;
+    transform-origin: 50% 50%;
+  }
+  @keyframes keyIdleBob{
+    0%,100%{ transform: translateY(0) rotate(-1deg); }
+    50%{ transform: translateY(-5px) rotate(1deg); }
+  }
+  .key-svg{
+    width:128px;
+    height:auto;
+    display:block;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+  }
+  .keyhole-svg{
+    flex:none;
+    width:58px;
+    height:auto;
+    display:block;
+    transition: filter 0.4s ease;
+    animation: holeGlow 3.8s ease-in-out infinite;
+  }
+  @keyframes holeGlow{
+    0%,100%{ filter: drop-shadow(0 0 3px rgba(255,150,80,0.2)); }
+    50%{ filter: drop-shadow(0 0 11px rgba(255,150,80,0.5)); }
+  }
+  .keyhole-svg .plate{
+    fill: rgba(20,12,8,0.55);
+    stroke: rgba(244,233,216,0.22);
+    stroke-width:2;
+  }
+  .keyhole-svg .hole{
+    fill:#050302;
+    stroke: rgba(244,233,216,0.3);
+    stroke-width:1.2;
+  }
+  .keyhole-svg.flash{
+    filter: drop-shadow(0 0 16px rgba(255,180,90,0.95));
+  }
+  .keyhole-svg.flash .hole{
+    fill:#ffb75e;
+  }
+  .keyhole-svg.wrong-flash{
+    filter: drop-shadow(0 0 12px rgba(255,60,40,0.85));
+  }
+
+  @keyframes keyShake{
+    10%,90%{ transform: translateX(-2px) rotate(-1deg); }
+    20%,80%{ transform: translateX(4px) rotate(1deg); }
+    30%,50%,70%{ transform: translateX(-8px) rotate(-2deg); }
+    40%,60%{ transform: translateX(8px) rotate(2deg); }
+  }
+  .key-wrap.key-shake{ animation: keyShake 0.5s ease; }
+  .key-wrap.key-enter{ transform: translateX(var(--dx,60px)) rotate(38deg); }
+
+  #pwForm{
+    animation: fadeInUp 1.1s ease-out 0.3s both;
   }
   #pw{
     width:100%;
     background:transparent;
     border:none;
-    border-bottom:1px solid rgba(244,233,216,0.28);
+    border-bottom: 3px solid transparent;
+    border-image: repeating-linear-gradient(90deg, var(--ember) 0 6px, transparent 6px 11px) 3;
     color: var(--paper);
-    font-size:22px;
+    font-size:20px;
     font-family: inherit;
     text-align:center;
     padding:10px 0 14px;
-    letter-spacing:0.04em;
+    letter-spacing:0.12em;
     outline:none;
-    transition: border-color 0.3s ease;
+    transition: opacity 0.3s ease;
   }
-  #pw::placeholder{ color: rgba(244,233,216,0.32); font-style:italic; }
-  #pw:focus{ border-bottom-color: var(--ember); }
+  #pw::placeholder{ color: rgba(244,233,216,0.32); font-style:italic; letter-spacing:0.04em; }
 
   #enterBtn{
     margin-top:22px;
@@ -110,7 +180,7 @@
   }
   #enterBtn:active{ background: rgba(255,77,61,0.16); border-color: var(--ember); }
 
-  .shake{ animation: shake 0.45s ease; border-bottom-color:#ff4d3d !important; }
+  .shake{ animation: shake 0.45s ease; }
   @keyframes shake{
     10%,90%{ transform: translateX(-1px); }
     20%,80%{ transform: translateX(2px); }
@@ -343,14 +413,39 @@
 <body>
 
 <div id="gate">
-  <div class="flame"></div>
   <div class="gate-inner">
     <div class="eyebrow">password required</div>
+
+    <div class="lock-scene">
+      <div class="key-wrap" id="keyWrap">
+        <svg class="key-svg" viewBox="0 0 220 90" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ffe1ab"/>
+              <stop offset="45%" stop-color="#d9a154"/>
+              <stop offset="100%" stop-color="#8a5a26"/>
+            </linearGradient>
+          </defs>
+          <circle cx="34" cy="45" r="27" fill="none" stroke="url(#goldGrad)" stroke-width="9"/>
+          <circle cx="34" cy="45" r="8" fill="none" stroke="url(#goldGrad)" stroke-width="5"/>
+          <rect x="58" y="39" width="118" height="12" rx="2" fill="url(#goldGrad)"/>
+          <rect x="150" y="51" width="9" height="15" fill="url(#goldGrad)"/>
+          <rect x="163" y="51" width="9" height="23" fill="url(#goldGrad)"/>
+          <rect x="176" y="39" width="9" height="12" fill="url(#goldGrad)"/>
+        </svg>
+      </div>
+
+      <svg class="keyhole-svg" id="keyholeSvg" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+        <rect class="plate" x="4" y="4" width="82" height="82" rx="14"/>
+        <path class="hole" d="M45 26a11 11 0 0 1 5 20.8L58 63H32l8-16.2A11 11 0 0 1 45 26z"/>
+      </svg>
+    </div>
+
     <form id="pwForm" autocomplete="off">
-      <input id="pw" type="password" placeholder="type it in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" inputmode="text">
-      <button id="enterBtn" type="submit">enter</button>
+      <input id="pw" type="password" placeholder="carve the word" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" inputmode="text">
+      <button id="enterBtn" type="submit">turn the key</button>
     </form>
-    <div id="msg">that's not it</div>
+    <div id="msg">wrong key</div>
   </div>
 </div>
 
@@ -479,11 +574,25 @@ function spawnFinaleHeart(){
 }
 
 function fail(){
-  pw.classList.remove('shake');
-  void pw.offsetWidth;
-  pw.classList.add('shake');
+  const keyWrap = document.getElementById('keyWrap');
+  const keyholeSvg = document.getElementById('keyholeSvg');
+  keyWrap.style.animation = 'none';
+  void keyWrap.offsetWidth;
+  keyWrap.classList.remove('key-shake');
+  void keyWrap.offsetWidth;
+  keyWrap.classList.add('key-shake');
+  keyholeSvg.style.animation = 'none';
+  void keyholeSvg.offsetWidth;
+  keyholeSvg.classList.remove('wrong-flash');
+  void keyholeSvg.offsetWidth;
+  keyholeSvg.classList.add('wrong-flash');
   msg.classList.add('show');
-  setTimeout(()=>{ pw.classList.remove('shake'); }, 450);
+  setTimeout(()=>{
+    keyWrap.classList.remove('key-shake');
+    keyholeSvg.classList.remove('wrong-flash');
+    keyWrap.style.animation = '';
+    keyholeSvg.style.animation = '';
+  }, 500);
 }
 
 function unlock(target){
@@ -494,17 +603,42 @@ function unlock(target){
   }, 50);
 }
 
+// Slides the key into the keyhole, turns it, flashes the lock gold,
+// then hands off to the normal fade-into-the-page transition.
+function playKeyThenUnlock(target){
+  const keyWrap = document.getElementById('keyWrap');
+  const keyholeSvg = document.getElementById('keyholeSvg');
+
+  // Stop the idle bob/glow so the transition-driven movement isn't
+  // fought by the looping CSS animation on the same properties.
+  keyWrap.style.animation = 'none';
+  keyholeSvg.style.animation = 'none';
+
+  const keyRect = keyWrap.getBoundingClientRect();
+  const holeRect = keyholeSvg.getBoundingClientRect();
+  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12);
+  keyWrap.style.setProperty('--dx', dx + 'px');
+  keyWrap.classList.add('key-enter');
+
+  setTimeout(()=>{
+    keyholeSvg.classList.add('flash');
+    setTimeout(()=>{
+      unlock(target);
+    }, 380);
+  }, 900);
+}
+
 const pwForm = document.getElementById('pwForm');
 
 pwForm.addEventListener('submit', (e)=>{
   e.preventDefault();
   const val = pw.value.trim();
   if(val === PW_ROOM){
-    unlock(room);
     setupPlayer('audioA','playBtnA','seekA','curA','durA', true, true);
+    playKeyThenUnlock(room);
   } else if(val === PW_RADIO){
-    unlock(radio);
     setupPlayer('audioB','playBtnB','seekB','curB','durB', true);
+    playKeyThenUnlock(radio);
   } else {
     fail();
     pw.value = '';
