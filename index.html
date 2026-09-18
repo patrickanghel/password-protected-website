@@ -89,7 +89,7 @@
   }
   .key-wrap{
     flex:none;
-    transition: transform 0.9s cubic-bezier(0.65,0,0.35,1);
+    transition: transform 0.9s cubic-bezier(0.65,0,0.35,1), opacity 0.9s ease;
     animation: keyIdleBob 4.6s ease-in-out infinite;
     transform-origin: 50% 50%;
   }
@@ -142,7 +142,49 @@
     40%,60%{ transform: translateX(8px) rotate(2deg); }
   }
   .key-wrap.key-shake{ animation: keyShake 0.5s ease; }
-  .key-wrap.key-enter{ transform: translateX(var(--dx,60px)) rotate(38deg); }
+  .key-wrap.key-enter{ transform: translateX(var(--dx,60px)) rotate(38deg); opacity:0; }
+
+  /* ---------- LOCK CHARGE + CRACK (recording page only) ---------- */
+  @keyframes lockCharge{
+    0%{ transform: scale(1) translate(0,0); }
+    10%{ transform: scale(1.05) translate(-2px,0); }
+    22%{ transform: scale(1.12) translate(2px,0); }
+    34%{ transform: scale(1.2) translate(-3px,0); }
+    46%{ transform: scale(1.28) translate(3px,0); }
+    58%{ transform: scale(1.36) translate(-4px,0); }
+    70%{ transform: scale(1.43) translate(4px,0); }
+    82%{ transform: scale(1.48) translate(-5px,0); }
+    92%{ transform: scale(1.5) translate(3px,0); }
+    100%{ transform: scale(1.5) translate(0,0); }
+  }
+  .keyhole-svg.lock-charge{
+    animation: lockCharge 1.5s ease-in forwards;
+  }
+  .keyhole-svg .crack{
+    opacity:0;
+    stroke:#2a1608;
+    stroke-width:1.6;
+    fill:none;
+    stroke-linecap:round;
+  }
+  .keyhole-svg.lock-crack .crack{
+    opacity:1;
+    transition: opacity 0.1s ease;
+  }
+  .keyhole-svg .light-burst{
+    opacity:0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0);
+  }
+  .keyhole-svg.lock-crack .light-burst{
+    animation: lightBurst 0.7s ease-out forwards;
+  }
+  @keyframes lightBurst{
+    0%{ opacity:0; transform:scale(0); }
+    35%{ opacity:1; transform:scale(3.2); }
+    100%{ opacity:0.85; transform:scale(4.8); }
+  }
 
   #pwForm{
     animation: fadeInUp 1.1s ease-out 0.3s both;
@@ -438,6 +480,10 @@
       <svg class="keyhole-svg" id="keyholeSvg" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
         <rect class="plate" x="4" y="4" width="82" height="82" rx="14"/>
         <path class="hole" d="M45 26a11 11 0 0 1 5 20.8L58 63H32l8-16.2A11 11 0 0 1 45 26z"/>
+        <circle class="light-burst" cx="45" cy="45" r="9" fill="#ffde8a"/>
+        <path class="crack" d="M45 6 L40 22 L50 30 L36 40 L52 50 L34 58 L45 70 L40 84"/>
+        <path class="crack" d="M14 20 L28 34 L20 46 L32 56"/>
+        <path class="crack" d="M76 24 L64 36 L74 48 L62 58"/>
       </svg>
     </div>
 
@@ -510,7 +556,7 @@ function spawnHeart(){
   const heart = document.createElement('div');
   heart.className = 'heart';
   heart.textContent = '♥';
-  const size = 16 + Math.random()*22;
+  const size = (16 + Math.random()*22) * 2; // doubled so they're actually visible
   heart.style.fontSize = size + 'px';
   heart.style.left = (6 + Math.random()*82) + 'vw';
   heart.style.bottom = (10 + Math.random()*12) + 'vh';
@@ -605,6 +651,7 @@ function unlock(target){
 
 // Slides the key into the keyhole, turns it, flashes the lock gold,
 // then hands off to the normal fade-into-the-page transition.
+// Used for the Raindance page (simple version).
 function playKeyThenUnlock(target){
   const keyWrap = document.getElementById('keyWrap');
   const keyholeSvg = document.getElementById('keyholeSvg');
@@ -628,6 +675,40 @@ function playKeyThenUnlock(target){
   }, 900);
 }
 
+// The recording page's unlock: key vanishes fully into the lock, the lock
+// grows and shakes with rising tension, cracks open with a burst of light,
+// then the page fades in. Only used for the "25augustAP" password.
+function playKeyThenCrackUnlock(target){
+  const keyWrap = document.getElementById('keyWrap');
+  const keyholeSvg = document.getElementById('keyholeSvg');
+
+  keyWrap.style.animation = 'none';
+  keyholeSvg.style.animation = 'none';
+
+  const keyRect = keyWrap.getBoundingClientRect();
+  const holeRect = keyholeSvg.getBoundingClientRect();
+  // Push the key further than the hole's center so it travels fully
+  // inside and disappears, rather than just touching the plate.
+  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.6;
+  keyWrap.style.setProperty('--dx', dx + 'px');
+  keyWrap.classList.add('key-enter');
+
+  // Key fully inside → the lock starts charging: growing + shaking.
+  setTimeout(()=>{
+    keyholeSvg.classList.add('lock-charge');
+
+    // Charge peaks → crack open with a burst of yellow light.
+    setTimeout(()=>{
+      keyholeSvg.classList.add('lock-crack', 'flash');
+
+      // Let the light linger a moment, then slowly reveal the page.
+      setTimeout(()=>{
+        unlock(target);
+      }, 700);
+    }, 1500);
+  }, 900);
+}
+
 const pwForm = document.getElementById('pwForm');
 
 pwForm.addEventListener('submit', (e)=>{
@@ -635,7 +716,7 @@ pwForm.addEventListener('submit', (e)=>{
   const val = pw.value.trim();
   if(val === PW_ROOM){
     setupPlayer('audioA','playBtnA','seekA','curA','durA', true, true);
-    playKeyThenUnlock(room);
+    playKeyThenCrackUnlock(room);
   } else if(val === PW_RADIO){
     setupPlayer('audioB','playBtnB','seekB','curB','durB', true);
     playKeyThenUnlock(radio);
