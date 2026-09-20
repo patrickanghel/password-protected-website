@@ -142,7 +142,71 @@
     40%,60%{ transform: translateX(8px) rotate(2deg); }
   }
   .key-wrap.key-shake{ animation: keyShake 0.5s ease; }
-  .key-wrap.key-enter{ transform: translateX(var(--dx,60px)) rotate(38deg); opacity:0; }
+  .key-wrap.key-enter{ transform: translateX(var(--dx,60px)) rotate(0deg); }
+  .key-wrap.key-vanish{
+    transform: translateX(var(--dx,60px));
+    opacity:0;
+    transition: opacity 1.3s ease-in;
+  }
+
+  /* Whole scene trembles as the lock struggles under pressure */
+  @keyframes sceneShake{
+    0%{ transform: translate(0,0); }
+    10%{ transform: translate(-1px,0); }
+    22%{ transform: translate(1px,0); }
+    34%{ transform: translate(-2px,1px); }
+    46%{ transform: translate(2px,-1px); }
+    58%{ transform: translate(-3px,1px); }
+    70%{ transform: translate(3px,-1px); }
+    82%{ transform: translate(-4px,1px); }
+    92%{ transform: translate(3px,-1px); }
+    100%{ transform: translate(0,0); }
+  }
+  .gate-inner.scene-shake{
+    animation: sceneShake 1.5s ease-in forwards;
+  }
+
+  /* Full-screen warm flash the instant the lock cracks open */
+  .screen-flash{
+    position:fixed; inset:0;
+    background: radial-gradient(circle at 50% 46%, #fff8e6 0%, rgba(255,214,140,0.98) 22%, rgba(255,150,60,0.55) 46%, transparent 75%);
+    opacity:0;
+    pointer-events:none;
+    z-index:30;
+  }
+  .screen-flash.fire{
+    animation: screenFlash 1.3s ease-out forwards;
+  }
+  @keyframes screenFlash{
+    0%{ opacity:0; }
+    12%{ opacity:1; }
+    55%{ opacity:0.92; }
+    100%{ opacity:0; }
+  }
+
+  /* Cracks that shoot out from the lock across the whole screen */
+  .screen-cracks{
+    position:fixed; inset:0;
+    pointer-events:none;
+    z-index:29;
+  }
+  .screen-crack-line{
+    position:fixed;
+    height:3px;
+    background: linear-gradient(90deg, rgba(255,214,90,0.55), rgba(255,232,140,0.95) 35%, rgba(255,250,215,1));
+    box-shadow: 0 0 22px 3px rgba(255,205,90,0.95);
+    transform-origin: 0 50%;
+    transform: rotate(var(--angle,0deg)) scaleX(0);
+    transition: transform 0.7s cubic-bezier(0.15,0.85,0.25,1);
+    opacity:0.98;
+  }
+  .screen-crack-line.grow{
+    transform: rotate(var(--angle,0deg)) scaleX(1);
+  }
+  .screen-crack-line.fade{
+    transition: opacity 0.9s ease;
+    opacity:0;
+  }
 
   /* ---------- LOCK CHARGE + CRACK (recording page only) ---------- */
   @keyframes lockCharge{
@@ -161,15 +225,22 @@
     animation: lockCharge 1.5s ease-in forwards;
   }
   .keyhole-svg .crack{
-    opacity:0;
-    stroke:#2a1608;
-    stroke-width:1.6;
+    stroke:#ffd23f;
+    stroke-width:1.8;
     fill:none;
     stroke-linecap:round;
+    stroke-linejoin:round;
+    stroke-dasharray:1;
+    stroke-dashoffset:1;
+    filter: drop-shadow(0 0 3px rgba(255,214,90,0.95)) drop-shadow(0 0 7px rgba(255,180,60,0.6));
   }
   .keyhole-svg.lock-crack .crack{
-    opacity:1;
-    transition: opacity 0.1s ease;
+    animation: crackDraw 0.5s ease-out forwards;
+  }
+  .keyhole-svg.lock-crack .crack:nth-of-type(2){ animation-delay: 0.08s; }
+  .keyhole-svg.lock-crack .crack:nth-of-type(3){ animation-delay: 0.16s; }
+  @keyframes crackDraw{
+    to{ stroke-dashoffset:0; }
   }
   .keyhole-svg .light-burst{
     opacity:0;
@@ -177,13 +248,13 @@
     transform-origin: center;
     transform: scale(0);
   }
-  .keyhole-svg.lock-crack .light-burst{
-    animation: lightBurst 0.7s ease-out forwards;
+  .keyhole-svg.flash .light-burst{
+    animation: lightBurst 0.9s ease-out forwards;
   }
   @keyframes lightBurst{
     0%{ opacity:0; transform:scale(0); }
-    35%{ opacity:1; transform:scale(3.2); }
-    100%{ opacity:0.85; transform:scale(4.8); }
+    30%{ opacity:1; transform:scale(4.2); }
+    100%{ opacity:0.95; transform:scale(6.5); }
   }
 
   #pwForm{
@@ -480,25 +551,27 @@
       <svg class="keyhole-svg" id="keyholeSvg" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
         <rect class="plate" x="4" y="4" width="82" height="82" rx="14"/>
         <path class="hole" d="M45 26a11 11 0 0 1 5 20.8L58 63H32l8-16.2A11 11 0 0 1 45 26z"/>
-        <circle class="light-burst" cx="45" cy="45" r="9" fill="#ffde8a"/>
-        <path class="crack" d="M45 6 L40 22 L50 30 L36 40 L52 50 L34 58 L45 70 L40 84"/>
-        <path class="crack" d="M14 20 L28 34 L20 46 L32 56"/>
-        <path class="crack" d="M76 24 L64 36 L74 48 L62 58"/>
+        <circle class="light-burst" cx="45" cy="45" r="10" fill="#fff6da"/>
+        <path class="crack" pathLength="1" d="M45 6 L40 22 L50 30 L36 40 L52 50 L34 58 L45 70 L40 84"/>
+        <path class="crack" pathLength="1" d="M14 20 L28 34 L20 46 L32 56"/>
+        <path class="crack" pathLength="1" d="M76 24 L64 36 L74 48 L62 58"/>
       </svg>
     </div>
 
     <form id="pwForm" autocomplete="off">
-      <input id="pw" type="password" placeholder="carve the word" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" inputmode="text">
+      <input id="pw" type="password" placeholder="have some faith, zana" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" inputmode="text">
       <button id="enterBtn" type="submit">turn the key</button>
     </form>
     <div id="msg">wrong key</div>
   </div>
+  <div class="screen-flash" id="screenFlash"></div>
+  <div class="screen-cracks" id="screenCracks"></div>
 </div>
 
 <div id="room">
   <div class="player">
-    <div class="track-label">a recording</div>
-    <div class="track-title">for you</div>
+    <div class="track-label">remember?</div>
+    <div class="track-title">our day 0</div>
     <div class="transport">
       <button id="playBtnA">&#9658;</button>
     </div>
@@ -641,18 +714,19 @@ function fail(){
   }, 500);
 }
 
-function unlock(target){
+function unlock(target, onRevealed){
   gate.classList.add('hide');
   setTimeout(()=>{
     gate.style.display = 'none';
     target.classList.add('show');
+    if(onRevealed) onRevealed();
   }, 50);
 }
 
 // Slides the key into the keyhole, turns it, flashes the lock gold,
 // then hands off to the normal fade-into-the-page transition.
 // Used for the Raindance page (simple version).
-function playKeyThenUnlock(target){
+function playKeyThenUnlock(target, onRevealed){
   const keyWrap = document.getElementById('keyWrap');
   const keyholeSvg = document.getElementById('keyholeSvg');
 
@@ -663,50 +737,116 @@ function playKeyThenUnlock(target){
 
   const keyRect = keyWrap.getBoundingClientRect();
   const holeRect = keyholeSvg.getBoundingClientRect();
-  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12);
+  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.22;
   keyWrap.style.setProperty('--dx', dx + 'px');
   keyWrap.classList.add('key-enter');
 
   setTimeout(()=>{
     keyholeSvg.classList.add('flash');
     setTimeout(()=>{
-      unlock(target);
+      unlock(target, onRevealed);
     }, 380);
   }, 900);
 }
 
-// The recording page's unlock: key vanishes fully into the lock, the lock
-// grows and shakes with rising tension, cracks open with a burst of light,
-// then the page fades in. Only used for the "25augustAP" password.
-function playKeyThenCrackUnlock(target){
+// The recording page's unlock: the key slides in, then slowly sinks and
+// shrinks away into the lock until nothing is left. The lock then visibly
+// grows and shakes with rising tension, holds a beat, cracks open from
+// inside the hole with light that spreads across the whole screen, then
+// the page fades in. Audio playback only actually starts right when the
+// page appears (see startPlaybackNow). Only used for "25augustAP".
+function playKeyThenCrackUnlock(target, onRevealed){
   const keyWrap = document.getElementById('keyWrap');
   const keyholeSvg = document.getElementById('keyholeSvg');
+  const gateInner = document.querySelector('.gate-inner');
+  const screenFlash = document.getElementById('screenFlash');
 
   keyWrap.style.animation = 'none';
   keyholeSvg.style.animation = 'none';
 
   const keyRect = keyWrap.getBoundingClientRect();
   const holeRect = keyholeSvg.getBoundingClientRect();
-  // Push the key further than the hole's center so it travels fully
-  // inside and disappears, rather than just touching the plate.
-  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.6;
+  // Push the tip past the hole's near edge so it visibly goes inside
+  // the hole itself, not just up to the plate.
+  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.22;
   keyWrap.style.setProperty('--dx', dx + 'px');
   keyWrap.classList.add('key-enter');
 
-  // Key fully inside → the lock starts charging: growing + shaking.
+  // Key reaches the hole → it slowly sinks into it, shrinking toward its
+  // own tip until there's nothing left, like it's being swallowed whole.
   setTimeout(()=>{
-    keyholeSvg.classList.add('lock-charge');
+    keyWrap.classList.add('key-vanish');
 
-    // Charge peaks → crack open with a burst of yellow light.
+    // Key is fully gone → the lock starts charging: growing + shaking.
     setTimeout(()=>{
-      keyholeSvg.classList.add('lock-crack', 'flash');
+      // Clear the earlier inline "none" — an inline style beats any class,
+      // so leaving it set here would silently block lock-charge forever.
+      keyholeSvg.style.animation = '';
+      keyholeSvg.classList.add('lock-charge');
+      gateInner.classList.add('scene-shake');
 
-      // Let the light linger a moment, then slowly reveal the page.
+      // Charge finishes and holds a beat at full size (trembling, tense) →
+      // yellow cracks draw first from inside the hole itself, THEN once
+      // that's done they extend outward across the whole screen, and only
+      // after that does the screen flood yellow.
       setTimeout(()=>{
-        unlock(target);
-      }, 700);
-    }, 1500);
+        keyholeSvg.classList.add('lock-crack');
+
+        setTimeout(()=>{
+          spawnScreenCracks(keyholeSvg);
+
+          setTimeout(()=>{
+            keyholeSvg.classList.add('flash');
+            screenFlash.classList.add('fire');
+
+            // Let the light linger, then slowly reveal the page.
+            setTimeout(()=>{
+              unlock(target, onRevealed);
+            }, 1100);
+          }, 1050);
+        }, 700);
+      }, 1800);
+    }, 1300);
   }, 900);
+}
+
+// Shoots jagged crack lines out from the lock's hole across the whole
+// screen, so the break isn't contained to the little keyhole graphic.
+function spawnScreenCracks(keyholeSvg){
+  const container = document.getElementById('screenCracks');
+  const holeEl = keyholeSvg.querySelector('.hole');
+  const rect = holeEl.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  // Guarantee reach past every corner of the screen from any starting point.
+  const reach = Math.hypot(window.innerWidth, window.innerHeight) * 1.15;
+
+  const angles = [-170,-150,-130,-110,-90,-70,-50,-30,-10,10,30,50,70,90,110,130,150,170];
+  angles.forEach((angle, i)=>{
+    const len = reach * (0.75 + Math.random()*0.4);
+    const line = document.createElement('div');
+    line.className = 'screen-crack-line';
+    line.style.left = cx + 'px';
+    line.style.top = cy + 'px';
+    line.style.width = len + 'px';
+    line.style.setProperty('--angle', angle + 'deg');
+    container.appendChild(line);
+
+    // Force a reflow so the browser registers the scaleX(0) starting
+    // state before we add the class that transitions it to scaleX(1) —
+    // otherwise the transition can get skipped entirely.
+    void line.offsetWidth;
+
+    // Stagger slightly so it reads like the crack is racing outward.
+    setTimeout(()=>{
+      line.classList.add('grow');
+    }, i * 18);
+
+    setTimeout(()=>{
+      line.classList.add('fade');
+      setTimeout(()=> line.remove(), 950);
+    }, 1350 + i*18);
+  });
 }
 
 const pwForm = document.getElementById('pwForm');
@@ -715,11 +855,13 @@ pwForm.addEventListener('submit', (e)=>{
   e.preventDefault();
   const val = pw.value.trim();
   if(val === PW_ROOM){
-    setupPlayer('audioA','playBtnA','seekA','curA','durA', true, true);
-    playKeyThenCrackUnlock(room);
+    setupPlayer('audioA','playBtnA','seekA','curA','durA', true);
+    primeAudioForAutoplay('audioA');
+    playKeyThenCrackUnlock(room, ()=> startPlaybackNow('audioA','playBtnA'));
   } else if(val === PW_RADIO){
-    setupPlayer('audioB','playBtnB','seekB','curB','durB', true);
-    playKeyThenUnlock(radio);
+    setupPlayer('audioB','playBtnB','seekB','curB','durB', false);
+    primeAudioForAutoplay('audioB');
+    playKeyThenUnlock(radio, ()=> startPlaybackNow('audioB','playBtnB'));
   } else {
     fail();
     pw.value = '';
@@ -753,7 +895,7 @@ function fmt(t){
   return m+':'+s;
 }
 
-function setupPlayer(audioId, btnId, seekId, curId, durId, autoplay, isMemoryTrack){
+function setupPlayer(audioId, btnId, seekId, curId, durId, isMemoryTrack){
   const audio = document.getElementById(audioId);
   const btn = document.getElementById(btnId);
   const seek = document.getElementById(seekId);
@@ -798,18 +940,36 @@ function setupPlayer(audioId, btnId, seekId, curId, durId, autoplay, isMemoryTra
 
     if(isMemoryTrack){ startHearts(audio); }
   }
+}
 
-  if(autoplay){
-    // Must be called synchronously within the user's keypress/tap handler,
-    // not inside an async callback, or mobile browsers silently block it.
-    const p = audio.play();
-    if(p && p.catch){
-      p.catch(()=>{
-        // Autoplay was still blocked (e.g. audio not ready yet) —
-        // show the play button so a single tap starts it.
-        btn.innerHTML = '&#9658;';
-      });
-    }
+// Browsers only allow audio.play() when it's invoked directly inside a
+// user gesture (like this form's submit handler). Our unlock animation
+// takes several seconds, and we don't want the track audibly starting —
+// or its position silently advancing — before the page is even visible.
+// The fix: play() then immediately pause() within the same synchronous
+// gesture. This "unlocks" the element for a later programmatic play()
+// call (from a setTimeout, after the animation) without needing a fresh
+// gesture, in every major mobile browser.
+function primeAudioForAutoplay(audioId){
+  const audio = document.getElementById(audioId);
+  const p = audio.play();
+  audio.pause();
+  audio.currentTime = 0;
+  if(p && p.catch){ p.catch(()=>{}); }
+}
+
+// Actually starts playback for real — called right as the page is
+// revealed, not at the moment the password was submitted.
+function startPlaybackNow(audioId, btnId){
+  const audio = document.getElementById(audioId);
+  const btn = document.getElementById(btnId);
+  audio.currentTime = 0;
+  const p = audio.play();
+  if(p && p.catch){
+    p.catch(()=>{
+      // Still blocked for some reason — show the play button so one tap starts it.
+      btn.innerHTML = '&#9658;';
+    });
   }
 }
 </script>
