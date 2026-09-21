@@ -9,7 +9,7 @@
 <title>Enter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
 <style>
   :root{
     --ember: #ff4d3d;
@@ -26,7 +26,7 @@
   }
   body{
     background: var(--ink);
-    font-family: 'Caveat', Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    font-family: 'Original Surfer', Georgia, 'Iowan Old Style', 'Times New Roman', serif;
     color: var(--paper);
     overflow:hidden;
     position:fixed;
@@ -89,6 +89,14 @@
     gap:22px;
     margin-bottom:26px;
     animation: fadeInUp 1.1s ease-out 0.15s both;
+    perspective:700px;
+  }
+  .lock-turn-wrap{
+    flex:none;
+    transition: transform 0.7s cubic-bezier(0.4,0,0.2,1);
+  }
+  .lock-turn-wrap.lock-turn{
+    transform: translateX(var(--turnX, 100px)) rotateY(-32deg);
   }
   .key-wrap{
     flex:none;
@@ -551,14 +559,16 @@
         </svg>
       </div>
 
-      <svg class="keyhole-svg" id="keyholeSvg" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
-        <rect class="plate" x="4" y="4" width="82" height="82" rx="14"/>
-        <path class="hole" d="M45 26a11 11 0 0 1 5 20.8L58 63H32l8-16.2A11 11 0 0 1 45 26z"/>
-        <circle class="light-burst" cx="45" cy="45" r="10" fill="#fff6da"/>
-        <path class="crack" pathLength="1" d="M45 6 L40 22 L50 30 L36 40 L52 50 L34 58 L45 70 L40 84"/>
-        <path class="crack" pathLength="1" d="M14 20 L28 34 L20 46 L32 56"/>
-        <path class="crack" pathLength="1" d="M76 24 L64 36 L74 48 L62 58"/>
-      </svg>
+      <div class="lock-turn-wrap" id="lockTurnWrap">
+        <svg class="keyhole-svg" id="keyholeSvg" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+          <rect class="plate" x="4" y="4" width="82" height="82" rx="14"/>
+          <path class="hole" d="M45 26a11 11 0 0 1 5 20.8L58 63H32l8-16.2A11 11 0 0 1 45 26z"/>
+          <circle class="light-burst" cx="45" cy="45" r="10" fill="#fff6da"/>
+          <path class="crack" pathLength="1" d="M45 6 L40 22 L50 30 L36 40 L52 50 L34 58 L45 70 L40 84"/>
+          <path class="crack" pathLength="1" d="M14 20 L28 34 L20 46 L32 56"/>
+          <path class="crack" pathLength="1" d="M76 24 L64 36 L74 48 L62 58"/>
+        </svg>
+      </div>
     </div>
 
     <form id="pwForm" autocomplete="off">
@@ -765,19 +775,35 @@ function playKeyThenUnlock(target, onRevealed){
 function playKeyThenCrackUnlock(target, onRevealed){
   const keyWrap = document.getElementById('keyWrap');
   const keyholeSvg = document.getElementById('keyholeSvg');
+  const lockTurnWrap = document.getElementById('lockTurnWrap');
   const gateInner = document.querySelector('.gate-inner');
   const screenFlash = document.getElementById('screenFlash');
 
   keyWrap.style.animation = 'none';
   keyholeSvg.style.animation = 'none';
 
-  const keyRect = keyWrap.getBoundingClientRect();
-  const holeRect = keyholeSvg.getBoundingClientRect();
-  // Push the tip past the hole's near edge so it visibly goes inside
-  // the hole itself, not just up to the plate.
-  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.22;
-  keyWrap.style.setProperty('--dx', dx + 'px');
-  keyWrap.classList.add('key-enter');
+  // First, the lock itself pulls to the right — far enough to clear past
+  // the "password required" text — and turns in 3D so it's actually
+  // facing the key, instead of sitting there front-on.
+  const eyebrowRect = document.querySelector('.eyebrow').getBoundingClientRect();
+  const wrapRectBefore = lockTurnWrap.getBoundingClientRect();
+  const turnX = Math.max(100, (eyebrowRect.right - wrapRectBefore.left) + 24);
+  lockTurnWrap.style.setProperty('--turnX', turnX + 'px');
+  lockTurnWrap.classList.add('lock-turn');
+
+  setTimeout(()=>{
+    // Now that the lock has turned to face it, measure the new position
+    // and slide the key in. We target the actual hole shape itself (not
+    // just the outer plate) and push firmly past its near edge with a
+    // flat pixel amount — using a proportion of the hole's own width here
+    // breaks once the lock is rotated in 3D, since its projected width
+    // shrinks with foreshortening and the tip ends up falling short.
+    const holeEl = keyholeSvg.querySelector('.hole');
+    const keyRect = keyWrap.getBoundingClientRect();
+    const holeRect = holeEl.getBoundingClientRect();
+    const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + 26;
+    keyWrap.style.setProperty('--dx', dx + 'px');
+    keyWrap.classList.add('key-enter');
 
   // Key reaches the hole → it slowly sinks into it, shrinking toward its
   // own tip until there's nothing left, like it's being swallowed whole.
@@ -815,6 +841,7 @@ function playKeyThenCrackUnlock(target, onRevealed){
       }, 1800);
     }, 1300);
   }, 900);
+  }, 700);
 }
 
 // Shoots jagged crack lines out from the lock's hole across the whole
