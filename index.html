@@ -96,7 +96,7 @@
     transition: transform 0.7s cubic-bezier(0.4,0,0.2,1);
   }
   .lock-turn-wrap.lock-turn{
-    transform: translateX(var(--turnX, 100px)) rotateY(-32deg);
+    transform: translateX(34px) rotateY(-32deg);
   }
   .key-wrap{
     flex:none;
@@ -782,26 +782,18 @@ function playKeyThenCrackUnlock(target, onRevealed){
   keyWrap.style.animation = 'none';
   keyholeSvg.style.animation = 'none';
 
-  // First, the lock itself pulls to the right — far enough to clear past
-  // the "password required" text — and turns in 3D so it's actually
-  // facing the key, instead of sitting there front-on.
-  const eyebrowRect = document.querySelector('.eyebrow').getBoundingClientRect();
-  const wrapRectBefore = lockTurnWrap.getBoundingClientRect();
-  const turnX = Math.max(100, (eyebrowRect.right - wrapRectBefore.left) + 24);
-  lockTurnWrap.style.setProperty('--turnX', turnX + 'px');
+  // First, the lock itself pulls to the right and turns in 3D so it's
+  // actually facing the key, instead of sitting there front-on.
   lockTurnWrap.classList.add('lock-turn');
 
   setTimeout(()=>{
     // Now that the lock has turned to face it, measure the new position
-    // and slide the key in. We target the actual hole shape itself (not
-    // just the outer plate) and push firmly past its near edge with a
-    // flat pixel amount — using a proportion of the hole's own width here
-    // breaks once the lock is rotated in 3D, since its projected width
-    // shrinks with foreshortening and the tip ends up falling short.
-    const holeEl = keyholeSvg.querySelector('.hole');
+    // and slide the key in.
     const keyRect = keyWrap.getBoundingClientRect();
-    const holeRect = holeEl.getBoundingClientRect();
-    const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + 26;
+    const holeRect = keyholeSvg.getBoundingClientRect();
+    // Push the tip past the hole's near edge so it visibly goes inside
+    // the hole itself, not just up to the plate.
+    const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.22;
     keyWrap.style.setProperty('--dx', dx + 'px');
     keyWrap.classList.add('key-enter');
 
