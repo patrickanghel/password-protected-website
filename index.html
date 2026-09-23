@@ -153,11 +153,12 @@
     40%,60%{ transform: translateX(8px) rotate(2deg); }
   }
   .key-wrap.key-shake{ animation: keyShake 0.5s ease; }
-  .key-wrap.key-enter{ transform: translateX(var(--dx,60px)) rotate(0deg); }
+  .key-wrap.key-enter{ transform: translate(var(--dx,60px), var(--dy,0px)) rotate(0deg); }
   .key-wrap.key-vanish{
-    transform: translateX(var(--dx,60px));
+    transform: translate(var(--dx,60px), var(--dy,0px)) scale(0.04);
+    transform-origin: 84% 50%;
     opacity:0;
-    transition: opacity 1.3s ease-in;
+    transition: transform 1.3s ease-in, opacity 1.3s ease-in;
   }
 
   /* Whole scene trembles as the lock struggles under pressure */
@@ -214,9 +215,25 @@
   .screen-crack-line.grow{
     transform: rotate(var(--angle,0deg)) scaleX(1);
   }
+  .screen-crack-line.branch{
+    height:2px;
+    opacity:0.9;
+    box-shadow: 0 0 14px 2px rgba(255,205,90,0.85);
+  }
   .screen-crack-line.fade{
     transition: opacity 0.9s ease;
     opacity:0;
+  }
+  /* a few cracks spread at half speed for a more dynamic break */
+  .screen-crack-line.slow{
+    transition: transform 1.4s cubic-bezier(0.15,0.85,0.25,1);
+  }
+  .screen-crack-line.slow.fade{
+    transition: transform 1.4s cubic-bezier(0.15,0.85,0.25,1), opacity 0.9s ease;
+  }
+  /* 25augustAP: lock slides a little right and turns slightly to face the key */
+  .lock-turn-wrap.lock-face{
+    transform: translateX(18px) rotateY(-18deg);
   }
 
   /* ---------- LOCK CHARGE + CRACK (recording page only) ---------- */
@@ -740,10 +757,65 @@ function unlock(target, onRevealed){
   }, 50);
 }
 
-// Slides the key into the keyhole, turns it, flashes the lock gold,
-// then hands off to the normal fade-into-the-page transition.
-// Used for the Raindance page (simple version).
-function playKeyThenUnlock(target, onRevealed){
+// Measures the ACTUAL rendered positions of the key tip and the round
+// part of the keyhole, and returns the exact x/y translation needed to
+// put the tip inside the hole — never above it, never under it.
+function computeKeyTravel(keyWrap, keyholeSvg){
+  const holeEl = keyholeSvg.querySelector('.hole');
+  const holeRect = holeEl.getBoundingClientRect();
+  const keyRect = keyWrap.getBoundingClientRect();
+  // Aim at the center of the round part of the keyhole (~30% down the
+  // hole shape), nudged slightly inward so the tip ends up inside it.
+  const targetX = holeRect.left + holeRect.width/2 + holeRect.width*0.10;
+  const targetY = holeRect.top + holeRect.height*0.30;
+  // Key tip = right end of the shaft: 84.1% across, 50% down the key art.
+  const tipX = keyRect.left + keyRect.width*0.841;
+  const tipY = keyRect.top + keyRect.height*0.5;
+  return { dx: targetX - tipX, dy: targetY - tipY };
+}
+function setKeyTravel(keyWrap, keyholeSvg){
+  const t = computeKeyTravel(keyWrap, keyholeSvg);
+  keyWrap.style.setProperty('--dx', t.dx + 'px');
+  keyWrap.style.setProperty('--dy', t.dy + 'px');
+}
+
+// Real-life insertion: the key slides in ONE smooth motion, never stops,
+// never shrinks. Its tip goes into the hole and every part of the blade
+// that passes the hole disappears inside it (clipped exactly at the hole),
+// until about half of the blade is inside. Calls done() when finished.
+function insertKeyHalfway(keyWrap, keyholeSvg, done){
+  keyWrap.style.animation = 'none';
+  keyWrap.style.transition = 'none';
+  keyWrap.style.transform = 'none';
+  keyWrap.style.clipPath = 'none';
+  void keyWrap.offsetWidth;
+  const holeRect = keyholeSvg.querySelector('.hole').getBoundingClientRect();
+  const k = keyWrap.getBoundingClientRect();
+  const holeX = holeRect.left + holeRect.width/2;       // entry line
+  const holeY = holeRect.top + holeRect.height*0.30;    // round part of hole
+  const tipX0 = k.left + k.width*0.841;                 // key tip
+  const tipY0 = k.top + k.height*0.5;
+  const bladeLen = k.width*(185-58)/220;                // blade length
+  const dx = (holeX + bladeLen*0.5) - tipX0;            // half blade inside
+  const dy = holeY - tipY0;
+  const dur = 1300, t0 = performance.now();
+  const ease = t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+  function frame(now){
+    const p = Math.min(1,(now-t0)/dur), e = ease(p);
+    const x = dx*e, y = dy*e;
+    keyWrap.style.transform = 'translate('+x+'px,'+y+'px)';
+    // hide everything of the key that is past the hole (inside the lock)
+    const visible = holeX - (k.left + x);
+    const cut = Math.max(0, k.width - visible);
+    keyWrap.style.clipPath = 'inset(-20px '+cut+'px -20px -20px)';
+    if(p<1) requestAnimationFrame(frame); else if(done) done();
+  }
+  requestAnimationFrame(frame);
+}
+
+// Slides the key exactly into the keyhole, then the page appears right
+// away — no cracks, no flash. Used for the Raindance page.
+function playKeyThenReveal(target, onRevealed){
   const keyWrap = document.getElementById('keyWrap');
   const keyholeSvg = document.getElementById('keyholeSvg');
 
@@ -752,18 +824,45 @@ function playKeyThenUnlock(target, onRevealed){
   keyWrap.style.animation = 'none';
   keyholeSvg.style.animation = 'none';
 
-  const keyRect = keyWrap.getBoundingClientRect();
-  const holeRect = keyholeSvg.getBoundingClientRect();
-  const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.22;
-  keyWrap.style.setProperty('--dx', dx + 'px');
-  keyWrap.classList.add('key-enter');
-
-  setTimeout(()=>{
-    keyholeSvg.classList.add('flash');
+  // Measure after the idle animation is off, so the numbers are exact.
+  insertKeyHalfway(keyWrap, keyholeSvg, ()=>{
+    // A brief beat so the key is seen sitting inside the hole,
+    // then the page opens immediately.
     setTimeout(()=>{
       unlock(target, onRevealed);
-    }, 380);
-  }, 900);
+    }, 150);
+  });
+}
+
+// Slides the key exactly into the keyhole, flashes the lock gold, then
+// yellow cracks shoot across the whole screen before the page appears.
+// Used for the 25augustAP recording page.
+function playKeyThenUnlock(target, onRevealed){
+  const keyWrap = document.getElementById('keyWrap');
+  const keyholeSvg = document.getElementById('keyholeSvg');
+  const screenFlash = document.getElementById('screenFlash');
+
+  // Stop the idle bob/glow so the transition-driven movement isn't
+  // fought by the looping CSS animation on the same properties.
+  keyWrap.style.animation = 'none';
+  keyholeSvg.style.animation = 'none';
+
+  // The lock slides a little to the right and turns slightly to face
+  // the key; once it has settled, the key goes in exactly as before.
+  const lockTurnWrap = document.getElementById('lockTurnWrap');
+  lockTurnWrap.classList.add('lock-face');
+  setTimeout(()=>{
+  insertKeyHalfway(keyWrap, keyholeSvg, ()=>{
+    keyholeSvg.classList.add('flash');
+    // Cracks race across the screen FIRST...
+    spawnScreenCracks(keyholeSvg);
+    // ...and only once they're visible does the yellow flood follow.
+    setTimeout(()=>{ screenFlash.classList.add('fire'); }, 750);
+    setTimeout(()=>{
+      unlock(target, onRevealed);
+    }, 1550);
+  });
+  }, 800);
 }
 
 // The recording page's unlock: the key slides in, then slowly sinks and
@@ -789,19 +888,9 @@ function playKeyThenCrackUnlock(target, onRevealed){
   setTimeout(()=>{
     // Now that the lock has turned to face it, measure the new position
     // and slide the key in.
-    const keyRect = keyWrap.getBoundingClientRect();
-    const holeRect = keyholeSvg.getBoundingClientRect();
-    // Push the tip past the hole's near edge so it visibly goes inside
-    // the hole itself, not just up to the plate.
-    const dx = (holeRect.left + holeRect.width/2) - (keyRect.right - 12) + holeRect.width * 0.22;
-    keyWrap.style.setProperty('--dx', dx + 'px');
-    keyWrap.classList.add('key-enter');
-
-  // Key reaches the hole → it slowly sinks into it, shrinking toward its
-  // own tip until there's nothing left, like it's being swallowed whole.
-  setTimeout(()=>{
-    keyWrap.classList.add('key-vanish');
-
+    // Measure the real on-screen positions and slide the key straight
+    // into the round part of the hole — never above or under it.
+    insertKeyHalfway(keyWrap, keyholeSvg, ()=>{
     // Key is fully gone → the lock starts charging: growing + shaking.
     setTimeout(()=>{
       // Clear the earlier inline "none" — an inline style beats any class,
@@ -831,8 +920,8 @@ function playKeyThenCrackUnlock(target, onRevealed){
           }, 1050);
         }, 700);
       }, 1800);
-    }, 1300);
-  }, 900);
+    }, 150);
+    });
   }, 700);
 }
 
@@ -851,7 +940,8 @@ function spawnScreenCracks(keyholeSvg){
   angles.forEach((angle, i)=>{
     const len = reach * (0.75 + Math.random()*0.4);
     const line = document.createElement('div');
-    line.className = 'screen-crack-line';
+    const slow = (i % 3 === 1);
+    line.className = 'screen-crack-line' + (slow ? ' slow' : '');
     line.style.left = cx + 'px';
     line.style.top = cy + 'px';
     line.style.width = len + 'px';
@@ -872,6 +962,30 @@ function spawnScreenCracks(keyholeSvg){
       line.classList.add('fade');
       setTimeout(()=> line.remove(), 950);
     }, 1350 + i*18);
+
+    // One or two jagged branches split off each main crack as it races
+    // outward, so the whole screen reads as shattering, not just spokes.
+    const branchCount = 1 + Math.floor(Math.random()*2);
+    const mainRad = angle * Math.PI/180;
+    for(let b=0; b<branchCount; b++){
+      const t = 0.25 + Math.random()*0.45; // how far along the main crack
+      const bx = cx + Math.cos(mainRad)*len*t;
+      const by = cy + Math.sin(mainRad)*len*t;
+      const bAngle = angle + (Math.random()<0.5?-1:1)*(25 + Math.random()*35);
+      const branch = document.createElement('div');
+      branch.className = 'screen-crack-line branch' + (slow ? ' slow' : '');
+      branch.style.left = bx + 'px';
+      branch.style.top = by + 'px';
+      branch.style.width = (reach * (0.06 + Math.random()*0.16)) + 'px';
+      branch.style.setProperty('--angle', bAngle + 'deg');
+      container.appendChild(branch);
+      void branch.offsetWidth;
+      setTimeout(()=>{ branch.classList.add('grow'); }, i*18 + (slow?2:1)*(120 + Math.floor(t*420)));
+      setTimeout(()=>{
+        branch.classList.add('fade');
+        setTimeout(()=> branch.remove(), 950);
+      }, 1350 + i*18);
+    }
   });
 }
 
@@ -883,11 +997,11 @@ pwForm.addEventListener('submit', (e)=>{
   if(val === PW_ROOM){
     setupPlayer('audioA','playBtnA','seekA','curA','durA', true);
     primeAudioForAutoplay('audioA');
-    playKeyThenCrackUnlock(room, ()=> startPlaybackNow('audioA','playBtnA'));
+    playKeyThenUnlock(room, ()=> startPlaybackNow("audioA","playBtnA"));
   } else if(val === PW_RADIO){
     setupPlayer('audioB','playBtnB','seekB','curB','durB', false);
     primeAudioForAutoplay('audioB');
-    playKeyThenUnlock(radio, ()=> startPlaybackNow('audioB','playBtnB'));
+    playKeyThenReveal(radio, ()=> startPlaybackNow('audioB','playBtnB'));
   } else {
     fail();
     pw.value = '';
