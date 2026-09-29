@@ -209,7 +209,7 @@
     box-shadow: 0 0 22px 3px rgba(255,205,90,0.95);
     transform-origin: 0 50%;
     transform: rotate(var(--angle,0deg)) scaleX(0);
-    transition: transform 0.7s cubic-bezier(0.15,0.85,0.25,1);
+    transition: transform 3s linear;
     opacity:0.98;
   }
   .screen-crack-line.grow{
@@ -224,12 +224,42 @@
     transition: opacity 0.9s ease;
     opacity:0;
   }
-  /* a few cracks spread at half speed for a more dynamic break */
+  /* Some cracks take 3 seconds and the slower group takes 5 seconds. */
   .screen-crack-line.slow{
-    transition: transform 1.4s cubic-bezier(0.15,0.85,0.25,1);
+    transition: transform 5s linear;
   }
-  .screen-crack-line.slow.fade{
-    transition: transform 1.4s cubic-bezier(0.15,0.85,0.25,1), opacity 0.9s ease;
+  .screen-crack-line.fade{
+    transition: opacity 0.9s ease;
+  }
+
+  /* Metal fragments replace the lock after every crack has finished. */
+  .lock-fragment-layer{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:31;
+    overflow:hidden;
+  }
+  .lock-fragment{
+    position:fixed;
+    overflow:hidden;
+    transform-origin:center;
+    animation:lockFragmentBreak 2s cubic-bezier(0.18,0.65,0.28,1) forwards;
+  }
+  .lock-fragment::before{
+    content:"";
+    position:absolute;
+    left:var(--source-left);
+    top:var(--source-top);
+    width:var(--lock-width);
+    height:var(--lock-height);
+    background:linear-gradient(135deg,#f5ddaa 0%,#9b6b36 32%,#332116 68%,#d8a45e 100%);
+    box-shadow:inset 0 0 12px rgba(255,224,166,0.28),0 0 9px rgba(255,188,92,0.45);
+  }
+  @keyframes lockFragmentBreak{
+    0%{ opacity:1; transform:translate(0,0) rotate(0deg) scale(1); }
+    24%{ opacity:1; transform:translate(calc(var(--fx)*0.18),calc(var(--fy)*0.1)) rotate(calc(var(--fr)*0.2)) scale(1); }
+    100%{ opacity:0; transform:translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(0.82); }
   }
   /* 25augustAP: lock slides a little right and turns slightly to face the key */
   .lock-turn-wrap.lock-face{
@@ -853,14 +883,15 @@ function playKeyThenUnlock(target, onRevealed){
   lockTurnWrap.classList.add('lock-face');
   setTimeout(()=>{
   insertKeyHalfway(keyWrap, keyholeSvg, ()=>{
-    keyholeSvg.classList.add('flash');
-    // Cracks race across the screen FIRST...
-    spawnScreenCracks(keyholeSvg);
-    // ...and only once they're visible does the yellow flood follow.
-    setTimeout(()=>{ screenFlash.classList.add('fire'); }, 750);
-    setTimeout(()=>{
-      unlock(target, onRevealed);
-    }, 1550);
+    // The cracks spread first. Only after the slowest ones finish does
+    // the lock itself burst into metal pieces for two full seconds.
+    spawnScreenCracks(keyholeSvg, ()=>{
+      keyholeSvg.classList.add('flash');
+      screenFlash.classList.add('fire');
+      breakLockIntoFragments(keyholeSvg, ()=>{
+        unlock(target, onRevealed);
+      });
+    });
   });
   }, 800);
 }
@@ -927,7 +958,7 @@ function playKeyThenCrackUnlock(target, onRevealed){
 
 // Shoots jagged crack lines out from the lock's hole across the whole
 // screen, so the break isn't contained to the little keyhole graphic.
-function spawnScreenCracks(keyholeSvg){
+function spawnScreenCracks(keyholeSvg, onFinished){
   const container = document.getElementById('screenCracks');
   const holeEl = keyholeSvg.querySelector('.hole');
   const rect = holeEl.getBoundingClientRect();
@@ -937,10 +968,19 @@ function spawnScreenCracks(keyholeSvg){
   const reach = Math.hypot(window.innerWidth, window.innerHeight) * 1.15;
 
   const angles = [-170,-150,-130,-110,-90,-70,-50,-30,-10,10,30,50,70,90,110,130,150,170];
+  // The very last moment any crack finishes growing, so the break can
+  // start at exactly that instant.
+  let lastCrackFinish = 0;
   angles.forEach((angle, i)=>{
-    const len = reach * (0.75 + Math.random()*0.4);
+    // Each crack ends right at the screen edge, so it is visibly moving
+    // until the very instant it finishes (no invisible off-screen time).
+    const rad0 = angle*Math.PI/180, dx=Math.cos(rad0), dy=Math.sin(rad0);
+    const tx = dx>0 ? (window.innerWidth-cx)/dx : dx<0 ? -cx/dx : Infinity;
+    const ty = dy>0 ? (window.innerHeight-cy)/dy : dy<0 ? -cy/dy : Infinity;
+    const len = Math.min(tx, ty, reach);
     const line = document.createElement('div');
-    const slow = (i % 3 === 1);
+    const slow = (i % 3 === 1 || i % 5 === 3);
+    lastCrackFinish = Math.max(lastCrackFinish, i*18 + (slow ? 5000 : 3000));
     line.className = 'screen-crack-line' + (slow ? ' slow' : '');
     line.style.left = cx + 'px';
     line.style.top = cy + 'px';
@@ -961,7 +1001,7 @@ function spawnScreenCracks(keyholeSvg){
     setTimeout(()=>{
       line.classList.add('fade');
       setTimeout(()=> line.remove(), 950);
-    }, 1350 + i*18);
+    }, (slow ? 5600 : 4600) + i*18);
 
     // One or two jagged branches split off each main crack as it races
     // outward, so the whole screen reads as shattering, not just spokes.
@@ -984,9 +1024,67 @@ function spawnScreenCracks(keyholeSvg){
       setTimeout(()=>{
         branch.classList.add('fade');
         setTimeout(()=> branch.remove(), 950);
-      }, 1350 + i*18);
+      }, (slow ? 5600 : 4600) + i*18);
     }
   });
+
+  // Start the break the exact instant the slowest crack finishes growing —
+  // no waiting, no overlap.
+  if(onFinished) setTimeout(onFinished, lastCrackFinish);
+}
+
+function breakLockIntoFragments(keyholeSvg, done){
+  const rect = keyholeSvg.getBoundingClientRect();
+  const layer = document.createElement('div');
+  layer.className = 'lock-fragment-layer';
+  document.body.appendChild(layer);
+
+  // Seven broad, deliberately irregular sections cover the complete lock.
+  // Each one shows the matching area of a single full-size metal surface,
+  // so they read as broken lock chunks rather than tiny separate shapes.
+  const chunks = [
+    {x:0,  y:0,  w:45, h:38, clip:'0 0,100% 0,88% 77%,62% 100%,0 84%'},
+    {x:39, y:0,  w:61, h:37, clip:'9% 0,100% 0,100% 86%,72% 100%,43% 79%,0 100%'},
+    {x:0,  y:30, w:36, h:49, clip:'0 0,76% 8%,100% 35%,79% 100%,0 91%'},
+    {x:28, y:27, w:43, h:48, clip:'18% 0,79% 7%,100% 37%,84% 91%,45% 100%,0 68%,7% 24%'},
+    {x:65, y:29, w:35, h:51, clip:'14% 5%,100% 0,100% 91%,30% 100%,0 62%'},
+    {x:0,  y:70, w:55, h:30, clip:'0 0,48% 13%,100% 0,87% 100%,0 100%'},
+    {x:47, y:67, w:53, h:33, clip:'8% 9%,49% 0,100% 13%,100% 100%,0 100%'}
+  ];
+
+  chunks.forEach((chunk, i)=>{
+    const piece = document.createElement('i');
+    piece.className = 'lock-fragment';
+    const left = rect.left + rect.width*chunk.x/100;
+    const top = rect.top + rect.height*chunk.y/100;
+    const width = rect.width*chunk.w/100;
+    const height = rect.height*chunk.h/100;
+    piece.style.left = left + 'px';
+    piece.style.top = top + 'px';
+    piece.style.width = width + 'px';
+    piece.style.height = height + 'px';
+    piece.style.clipPath = 'polygon(' + chunk.clip + ')';
+    piece.style.setProperty('--source-left', (rect.left-left) + 'px');
+    piece.style.setProperty('--source-top', (rect.top-top) + 'px');
+    piece.style.setProperty('--lock-width', rect.width + 'px');
+    piece.style.setProperty('--lock-height', rect.height + 'px');
+    const centerX = left + width/2;
+    const fromCenter = (centerX - (rect.left + rect.width/2)) / (rect.width/2);
+    const fx = fromCenter*125 + (Math.random()-0.5)*42;
+    const fy = 82 + Math.random()*105 - Math.abs(fromCenter)*18;
+    const fr = (fromCenter < 0 ? -1 : 1)*(75 + Math.random()*145);
+    piece.style.setProperty('--fx', fx + 'px');
+    piece.style.setProperty('--fy', fy + 'px');
+    piece.style.setProperty('--fr', fr + 'deg');
+    piece.style.animationDelay = (i*0.025) + 's';
+    layer.appendChild(piece);
+  });
+
+  keyholeSvg.style.visibility = 'hidden';
+  setTimeout(()=>{
+    layer.remove();
+    if(done) done();
+  }, 2150);
 }
 
 const pwForm = document.getElementById('pwForm');
