@@ -1106,11 +1106,14 @@ const pwForm = document.getElementById('pwForm');
 
 // Open directly on the complete Raindance player. Browsers may require one
 // tap before allowing sound; the existing play button remains available.
+// The song starts automatically 2 seconds after load, once the connection
+// has settled.
 setupPlayer('audioB','playBtnB','seekB','curB','durB', false);
-startPlaybackNow('audioB','playBtnB');
+const landingPlayTimer = setTimeout(()=> startPlaybackNow('audioB','playBtnB'), 2000);
 
 spotifyLink.addEventListener('click', (e)=>{
   e.preventDefault();
+  clearTimeout(landingPlayTimer);
   const audioB = document.getElementById('audioB');
   audioB.pause();
   radio.classList.remove('show');
